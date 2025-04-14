@@ -74,7 +74,8 @@ class App:
         tk.Button(self.root, text="Выход", command=self.show_login).pack(pady=10)
 
     def start_test(self, test_id):
-        self.test_data = send('get_questions', {'test_id': test_id})
+        self.test_data = send('get_questions', {'test_id': test_id})[
+            'questions']
         print(self.test_data)
         self.test_id = test_id
         self.answers = []
