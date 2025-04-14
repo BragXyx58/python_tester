@@ -90,3 +90,20 @@ INSERT INTO Answers (question_id, answer_text, is_correct) VALUES
 (4, '500', 0),
 (4, '301', 1);
 
+INSERT INTO Users (username, password_hash, is_admin)
+VALUES ('admin', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', 1);
+
+SELECT * FROM AnswerLogs
+SELECT * FROM Results
+SELECT * FROM Users
+SELECT * FROM Tests
+SELECT * FROM Questions
+SELECT * FROM Answers
+
+DROP TABLE Tests
+DROP TABLE Questions
+DROP TABLE Answers
+DROP TABLE Results
+DROP TABLE AnswerLogs
+
+

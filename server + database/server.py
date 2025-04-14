@@ -45,8 +45,30 @@ def get_test_questions(test_id):
             cursor.execute("SELECT id, answer_text FROM Answers WHERE question_id = ?", row.id)
             answers = [{'id': a.id, 'text': a.answer_text} for a in cursor.fetchall()]
             questions.append({'id': row.id, 'text': row.question_text, 'answers': answers})
-        print(questions)
-        return questions
+        return {'questions': questions}
+
+def get_answers_for_question(question_id):
+    with db.cursor() as cursor:
+        cursor.execute("SELECT id, answer_text, is_correct FROM Answers WHERE question_id = ?", question_id)
+        answers = [{'id': row.id, 'text': row.answer_text, 'is_correct': row.is_correct} for row in cursor.fetchall()]
+    return answers
+
+
+def handle_get_answers(data):
+    question_id = data.get('question_id')
+    if not question_id:
+        return {'status': 'error', 'message': 'Missing question_id'}
+
+    with db.cursor() as cursor:
+        cursor.execute("SELECT test_id FROM Questions WHERE id = ?", question_id)
+        row = cursor.fetchone()
+        test_id = row.test_id if row else None
+
+        cursor.execute("SELECT id, answer_text, is_correct FROM Answers WHERE question_id = ?", question_id)
+        answers = [{'id': r.id, 'text': r.answer_text, 'is_correct': r.is_correct} for r in cursor.fetchall()]
+
+    return {'status': 'ok', 'answers': answers, 'test_id': test_id}
+
 
 def submit_answers(data):
     correct = 0
@@ -101,17 +123,100 @@ def handle_admin_statistics():
         """)
         return [{'user': row.username, 'test': row.title, 'date': str(row.result_date), 'score': row.score_percent}
                 for row in cursor.fetchall()]
+def handle_delete_question(data):
+    question_id = data.get('question_id')
+    if not question_id:
+        return {'status': 'error', 'message': 'question_id is required'}
+
+    with db.cursor() as cursor:
+        cursor.execute("SELECT test_id FROM Questions WHERE id = ?", question_id)
+        row = cursor.fetchone()
+        if not row:
+            return {'status': 'error', 'message': 'Вопрос не найден'}
+
+        test_id = row.test_id
+        cursor.execute("DELETE FROM Answers WHERE question_id = ?", question_id)
+        cursor.execute("DELETE FROM Questions WHERE id = ?", question_id)
+        db.commit()
+        return {'status': 'ok', 'message': 'Вопрос удалён', 'test_id': test_id}
+
+
+def handle_delete_answer(data):
+    answer_id = data.get('answer_id')
+    if not answer_id:
+        return {'status': 'error', 'message': 'answer_id is required'}
+
+    with db.cursor() as cursor:
+        cursor.execute("SELECT question_id FROM Answers WHERE id = ?", answer_id)
+        row = cursor.fetchone()
+        if not row:
+            return {'status': 'error', 'message': 'Ответ не найден'}
+
+        cursor.execute("DELETE FROM Answers WHERE id = ?", answer_id)
+        db.commit()
+        return {'status': 'ok', 'message': 'Ответ удалён', 'question_id': row.question_id}
+
+
+def handle_get_answer(data):
+    answer_id = data.get('answer_id')
+    if not answer_id:
+        return {'status': 'error', 'message': 'answer_id is required'}
+
+    with db.cursor() as cursor:
+        cursor.execute("SELECT question_id, answer_text, is_correct FROM Answers WHERE id = ?", answer_id)
+        row = cursor.fetchone()
+        if not row:
+            return {'status': 'error', 'message': 'Ответ не найден'}
+
+        return {
+            'status': 'ok',
+            'answer_id': answer_id,
+            'question_id': row.question_id,
+            'text': row.answer_text,
+            'is_correct': bool(row.is_correct)
+        }
+
+
+def handle_edit_answer(data):
+    answer_id = data.get('answer_id')
+    new_text = data.get('text')
+    if not answer_id or new_text is None:
+        return {'status': 'error', 'message': 'Недостаточно данных для обновления ответа'}
+
+    with db.cursor() as cursor:
+        cursor.execute("UPDATE Answers SET answer_text = ? WHERE id = ?", new_text, answer_id)
+        db.commit()
+        return {'status': 'ok', 'message': 'Ответ обновлён'}
+def handle_delete_test(data):
+    test_id = data.get('test_id')
+    if not test_id:
+        return {'status': 'error', 'message': 'test_id is required'}
+
+    with db.cursor() as cursor:
+        cursor.execute("DELETE FROM Answers WHERE question_id IN (SELECT id FROM Questions WHERE test_id = ?)", test_id)
+        cursor.execute("DELETE FROM Questions WHERE test_id = ?", test_id)
+        cursor.execute("DELETE FROM Tests WHERE id = ?", test_id)
+        db.commit()
+
+        return {'status': 'ok', 'message': 'Тест удалён'}
 
 handlers = {
     'register': register_user,
     'login': login_user,
     'get_tests': lambda _: get_tests(),
     'get_questions': lambda data: get_test_questions(data['test_id']),
+    'get_answers': handle_get_answers,
     'submit': submit_answers,
     'admin_add_test': handle_admin_add_test,
     'admin_add_question': handle_admin_add_question,
     'admin_add_answer': handle_admin_add_answer,
     'admin_stats': lambda _: handle_admin_statistics(),
+    'delete_question': handle_delete_question,
+    'delete_answer': handle_delete_answer,
+    'get_answer': handle_get_answer,
+    'admin_edit_answer': handle_edit_answer,
+    'delete_test': handle_delete_test
+
 }
 
 def handle_client(conn):
