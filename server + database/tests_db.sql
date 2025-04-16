@@ -106,4 +106,71 @@ DROP TABLE Answers
 DROP TABLE Results
 DROP TABLE AnswerLogs
 
+CREATE TABLE Logs (
+    [id] INT PRIMARY KEY IDENTITY,
+    [user_id] INT, 
+    [table_name] NVARCHAR(50),
+    [action_type] NVARCHAR(50), 
+    [log_date] DATETIME DEFAULT GETDATE()
+);
+CREATE TRIGGER trg_Users_Log
+ON Users
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    INSERT INTO Logs (table_name, action_type, user_id)
+    SELECT 'Users', 'INSERT', id FROM inserted;
 
+    INSERT INTO Logs (table_name, action_type, user_id)
+    SELECT 'Users', 'UPDATE', id FROM inserted;
+
+    INSERT INTO Logs (table_name, action_type, user_id)
+    SELECT 'Users', 'DELETE', id FROM deleted;
+END;
+
+CREATE TRIGGER trg_Tests_Log
+ON Tests
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    INSERT INTO Logs (table_name, action_type)
+    SELECT 'Tests', 'INSERT' FROM inserted;
+
+    INSERT INTO Logs (table_name, action_type)
+    SELECT 'Tests', 'UPDATE' FROM inserted;
+
+    INSERT INTO Logs (table_name, action_type)
+    SELECT 'Tests', 'DELETE' FROM deleted;
+END;
+
+CREATE TRIGGER trg_Questions_Log
+ON Questions
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    INSERT INTO Logs (table_name, action_type)
+    SELECT 'Questions', 'INSERT' FROM inserted;
+
+    INSERT INTO Logs (table_name, action_type)
+    SELECT 'Questions', 'UPDATE' FROM inserted;
+
+    INSERT INTO Logs (table_name, action_type)
+    SELECT 'Questions', 'DELETE' FROM deleted;
+END;
+
+CREATE TRIGGER trg_Results_Log
+ON Results
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    INSERT INTO Logs (table_name, action_type, user_id)
+    SELECT 'Results', 'INSERT', [user_id] FROM inserted;
+
+    INSERT INTO Logs (table_name, action_type, user_id)
+    SELECT 'Results', 'UPDATE',[user_id] FROM inserted;
+
+    INSERT INTO Logs (table_name, action_type, user_id)
+    SELECT 'Results', 'DELETE', [user_id] FROM deleted;
+END;
+
+DROP TABLE Logs

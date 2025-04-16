@@ -218,7 +218,6 @@ class AdminPanelApp:
 
         tk.Label(self.root, text="Управление ответом", font=("Arial", 14)).pack(pady=10)
 
-        # Редактирование текста ответа
         tk.Label(self.root, text="Новый текст ответа").pack()
         new_answer_text = tk.Entry(self.root)
         new_answer_text.insert(0, answer_data['text'])
