@@ -12,7 +12,13 @@ cursor = db.cursor()
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
-
+def log_action(user_id, table_name, action_type):
+    with db.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO Logs (user_id, table_name, action_type) VALUES (?, ?, ?)",
+            user_id, table_name, action_type
+        )
+        db.commit()
 def register_user(data):
     with db.cursor() as cursor:
         cursor.execute("SELECT id FROM Users WHERE username = ?", data['username'])
@@ -21,7 +27,11 @@ def register_user(data):
         cursor.execute("INSERT INTO Users (username, password_hash, is_admin) VALUES (?, ?, ?)",
                        data['username'], hash_password(data['password']), data.get('is_admin', 0))
         db.commit()
+        cursor.execute("SELECT id FROM Users WHERE username = ?", data['username'])
+        user_id = cursor.fetchone().id
+        log_action(user_id, 'Users', 'register')
         return {'status': 'ok', 'message': 'Регистрация успешна'}
+
 
 def login_user(data):
     with db.cursor() as cursor:
@@ -29,6 +39,7 @@ def login_user(data):
                        data['username'], hash_password(data['password']))
         user = cursor.fetchone()
         if user:
+            log_action(user.id, 'Users', 'login_admin' if user.is_admin else 'login')
             return {'status': 'ok', 'user_id': user.id, 'is_admin': bool(user.is_admin)}
         return {'status': 'error', 'message': 'Неверный логин или пароль'}
 
@@ -63,7 +74,6 @@ def handle_get_answers(data):
         cursor.execute("SELECT test_id FROM Questions WHERE id = ?", question_id)
         row = cursor.fetchone()
         test_id = row.test_id if row else None
-
         cursor.execute("SELECT id, answer_text, is_correct FROM Answers WHERE question_id = ?", question_id)
         answers = [{'id': r.id, 'text': r.answer_text, 'is_correct': r.is_correct} for r in cursor.fetchall()]
 
@@ -200,6 +210,21 @@ def handle_delete_test(data):
 
         return {'status': 'ok', 'message': 'Тест удалён'}
 
+def handle_admin_get_logs():
+    cursor = db.cursor()
+    cursor.execute("SELECT TOP 100 * FROM Logs ORDER BY log_date DESC")
+    rows = cursor.fetchall()
+    logs = []
+    for row in rows:
+        logs.append({
+            'id': row.id,
+            'table': row.table_name,
+            'action': row.action_type,
+            'date': str(row.log_date),
+            'user': row.user_id
+        })
+    return {'status': 'ok', 'logs': logs}
+
 handlers = {
     'register': register_user,
     'login': login_user,
@@ -215,6 +240,7 @@ handlers = {
     'delete_answer': handle_delete_answer,
     'get_answer': handle_get_answer,
     'admin_edit_answer': handle_edit_answer,
+    'admin_get_logs': lambda _: handle_admin_get_logs(),
     'delete_test': handle_delete_test
 
 }
